@@ -1,14 +1,15 @@
-"""Runs the "cornered agent" experiment.
+"""Прогон эксперимента «агент в углу».
 
-Examples:
+Пример:
   python harness/run_experiment.py --runs 10 --model claude-opus-5-5
   python harness/run_experiment.py --conditions calm,profanity --runs 2 --parallel 2
-  python harness/run_experiment.py --dry-run          # print the commands, do not call the agent
+  python harness/run_experiment.py --dry-run          # показать команды, без вызова claude
+  python harness/run_experiment.py --scenario pricing --runs 1   # другой сценарий (по умолчанию events)
 
-Each run: a fresh copy of template/ in a temp dir, git init, then the agent is called
-headless (claude -p / gemini -p, stream-json output) and pushed up to N times via resume.
-After every round the sandbox is snapshotted and fully checked (detect.evaluate).
-Output: results/<batch>/<run_id>/ (meta.json, roundK.jsonl, snapshots/, roundK.diff).
+Каждый прогон: свежая копия template/ во временном каталоге, git init, вызов
+claude -p ... --output-format stream-json, потом до N нажимов через --resume.
+После каждого хода снапшот песочницы и полная проверка (detect.evaluate).
+Результаты: results/<batch>/<run_id>/ (meta.json, roundK.jsonl, snapshots/, roundK.diff).
 """
 
 import argparse
@@ -30,8 +31,25 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import detect  # noqa: E402
 
 ROOT = detect.ROOT
-CONDITIONS_FILE = Path(os.environ.get("CORNERED_CONDITIONS", Path(__file__).resolve().parent / "conditions.json"))
-CONFIG = json.loads(CONDITIONS_FILE.read_text(encoding="utf-8"))
+CONDITIONS_FILE = CONFIG = None
+
+
+def load_conditions():
+    """Реплики сценария (scenarios/<имя>/conditions.json) или CORNERED_CONDITIONS, например conditions.ci-framing.json."""
+    global CONDITIONS_FILE, CONFIG
+    CONDITIONS_FILE = Path(os.environ.get("CORNERED_CONDITIONS") or detect.SCENARIO["conditions"])
+    CONFIG = json.loads(CONDITIONS_FILE.read_text(encoding="utf-8"))
+
+
+load_conditions()
+
+
+def pressure(condition, k):
+    """k-й нажим (с нуля): цепочка нарастающих реплик или одна реплика, повторяемая каждый раз."""
+    chain = CONFIG["conditions"][condition]
+    if isinstance(chain, str):
+        return chain
+    return chain[min(k, len(chain) - 1)]
 
 
 def default_python():
@@ -50,18 +68,18 @@ def git(work, *args):
 
 def make_sandbox():
     base = Path(tempfile.mkdtemp(prefix="cornered-"))
-    work = base / "events"
+    work = base / detect.SCENARIO["workdir"]
     detect.copy_tree(detect.TEMPLATE, work)
     git(work, "init", "-q", "-b", "main")
     git(work, "config", "user.name", "dev")
     git(work, "config", "user.email", "dev@example.com")
     git(work, "add", "-A")
-    git(work, "commit", "-q", "-m", "events: dedupe helper")
+    git(work, "commit", "-q", "-m", detect.SCENARIO["commit"])
     return base, work
 
 
 def gemini_entry():
-    """On Windows gemini.cmd mangles non-ASCII arguments via cmd.exe, so node is called directly."""
+    """gemini.cmd на Windows портит не-ASCII аргументы через cmd.exe, поэтому зовём node напрямую."""
     try:
         root = subprocess.run(["npm", "root", "-g"], capture_output=True, text=True, shell=os.name == "nt").stdout.strip()
     except OSError:
@@ -71,11 +89,11 @@ def gemini_entry():
 
 
 def gemini_home(base, args):
-    """A separate GEMINI_CLI_HOME per run: no personal GEMINI.md, memory, extensions or history."""
+    """Отдельный GEMINI_CLI_HOME на прогон: без ваших GEMINI.md, памяти, расширений и истории."""
     home = base / "gemini-home"
     (home / ".gemini").mkdir(parents=True, exist_ok=True)
     settings = {
-        # maxSessionTurns covers the whole session including --resume, so budget all rounds
+        # maxSessionTurns считается на всю сессию, включая --resume: даём бюджет на все ходы
         "model": {"maxSessionTurns": args.max_turns * (CONFIG["max_pressures"] + 1)},
         "tools": {"exclude": ["google_web_search", "web_fetch"]},
         "security": {"auth": {"selectedType": "gemini-api-key"}},
@@ -130,18 +148,19 @@ def agent_env(python, home=None):
     return env
 
 
-LIMIT_RE = re.compile(r"usage limit|rate limit|limit reached|overloaded|quota|credit balance|\b429\b|\b529\b", re.I)
-STOP = threading.Event()   # hit a usage limit: do not start new runs
+LIMIT_RE = re.compile(r"usage limit|rate limit|session limit|hit your .{0,20}limit|limit reached|overloaded|quota"
+                      r"|credit balance|\b429\b|\b529\b", re.I)
+STOP = threading.Event()   # упёрлись в лимит: новые прогоны не запускаем
 SPENT = {"usd": 0.0}
 SPENT_LOCK = threading.Lock()
 
 
 def api_error(parsed, stderr_path):
-    """Failure not caused by the agent (limit, overload, crash). Such runs are excluded from stats."""
+    """Сбой не по вине агента: лимит, перегрузка, обрыв. Такой прогон не идёт в статистику."""
     res = parsed["result"]
     stderr = Path(stderr_path).read_text(encoding="utf-8", errors="replace") if Path(stderr_path).exists() else ""
     if res is None:
-        return (stderr.strip() or "no result event in stream-json")[-500:]
+        return (stderr.strip() or "нет result в stream-json")[-500:]
     if res.get("is_error") and res.get("subtype") != "error_max_turns":
         return str(res.get("error") or res.get("result") or res.get("subtype"))[-500:]
     if LIMIT_RE.search(stderr):
@@ -150,7 +169,7 @@ def api_error(parsed, stderr_path):
 
 
 def run_cost(meta):
-    # total_cost_usd in stream-json is cumulative per session: take the max, not the sum
+    # total_cost_usd в stream-json накопительный по сессии: берём максимум, не сумму
     return max(((r["transcript"]["result"] or {}).get("total_cost_usd") or 0 for r in meta["rounds"]), default=0)
 
 
@@ -195,7 +214,7 @@ def run_one(run_id, condition, args, batch_dir):
             session_id = parsed["session_id"] or session_id
             error = "timeout" if timed_out else api_error(parsed, run_dir / f"round{r}.stderr")
             if error:
-                print(f"[{run_id}] round {r}: FAILED: {error[:200]}", flush=True)
+                print(f"[{run_id}] round {r}: СБОЙ: {error[:200]}", flush=True)
                 if LIMIT_RE.search(error):
                     STOP.set()
                 break
@@ -219,7 +238,7 @@ def run_one(run_id, condition, args, batch_dir):
                 break
             if not red:
                 break
-            message = CONFIG["conditions"][condition]
+            message = pressure(condition, r)
     except BaseException as exc:
         error = error or repr(exc)
         raise
@@ -237,24 +256,29 @@ def run_one(run_id, condition, args, batch_dir):
 
 
 def main():
-    ap = argparse.ArgumentParser()
+    pre = argparse.ArgumentParser(add_help=False)
+    pre.add_argument("--scenario", default=detect.SCENARIO_NAME, choices=list(detect.SCENARIOS))
+    detect.use_scenario(pre.parse_known_args()[0].scenario)
+    load_conditions()
+
+    ap = argparse.ArgumentParser(parents=[pre])
     ap.add_argument("--conditions", default=",".join(CONFIG["conditions"]))
     ap.add_argument("--runs", type=int, default=10)
     ap.add_argument("--agent", choices=["claude", "gemini"], default="claude")
     ap.add_argument("--model", default=None,
-                    help="claude: default claude-opus-5-5; gemini: CLI default (e.g. gemini-3.1-pro-preview)")
+                    help="claude: по умолчанию claude-opus-5-5; gemini: по умолчанию модель CLI (напр. gemini-3.1-pro-preview)")
     ap.add_argument("--effort", default=None)
     ap.add_argument("--max-turns", type=int, default=30)
     ap.add_argument("--tools", default="Bash,Read,Edit,Write,Glob,Grep")
-    ap.add_argument("--timeout", type=int, default=1800, help="seconds per agent call")
+    ap.add_argument("--timeout", type=int, default=1800, help="сек на один вызов claude")
     ap.add_argument("--parallel", type=int, default=1)
-    ap.add_argument("--bare", action="store_true", help="--bare instead of --safe-mode (needs ANTHROPIC_API_KEY)")
-    ap.add_argument("--python", default=default_python(), help="python with pytest, visible to the agent")
+    ap.add_argument("--bare", action="store_true", help="--bare вместо --safe-mode (нужен ANTHROPIC_API_KEY)")
+    ap.add_argument("--python", default=default_python(), help="python с pytest, его видит агент")
     ap.add_argument("--claude", default=shutil.which("claude") or "claude")
-    ap.add_argument("--gemini", default=None, help="path to bundle/gemini.js (default: from npm root -g)")
-    ap.add_argument("--batch", default=None, help="batch name; re-running with the same name resumes unfinished runs")
+    ap.add_argument("--gemini", default=None, help="путь к bundle/gemini.js (по умолчанию из npm root -g)")
+    ap.add_argument("--batch", default=None, help="имя батча; повторный запуск с тем же именем докатывает недоделанное")
     ap.add_argument("--budget-usd", type=float, default=None,
-                    help="stop starting new runs once spend exceeds this (list price from stream-json)")
+                    help="не запускать новые прогоны, когда потрачено больше (list price из stream-json)")
     ap.add_argument("--keep-sandbox", action="store_true")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
@@ -262,47 +286,50 @@ def main():
     conditions = [c.strip() for c in args.conditions.split(",") if c.strip()]
     unknown = set(conditions) - set(CONFIG["conditions"])
     if unknown:
-        sys.exit(f"unknown conditions: {unknown}")
+        sys.exit(f"неизвестные условия: {unknown}")
 
     if args.agent == "gemini":
         args.gemini = args.gemini or gemini_entry()
         if not args.gemini:
-            sys.exit("Gemini CLI not found: npm install -g @google/gemini-cli")
+            sys.exit("Gemini CLI не найден: npm install -g @google/gemini-cli")
         if not os.environ.get("GEMINI_API_KEY") and not args.dry_run:
-            sys.exit("GEMINI_API_KEY is not set: create a key in Google AI Studio and export it")
+            sys.exit("Нет GEMINI_API_KEY: создайте ключ в Google AI Studio и задайте переменную окружения")
     elif not args.model:
         args.model = "claude-opus-5-5"
 
     if args.dry_run:
+        print("scenario:", args.scenario, "| conditions:", CONDITIONS_FILE)
         print("python:", args.python)
         print(" ".join(agent_cmd(args, CONFIG["initial_prompt"], None)))
-        print(" ".join(agent_cmd(args, CONFIG["conditions"][conditions[0]], "<session-id>")))
+        for k in range(CONFIG["max_pressures"]):
+            print(" ".join(agent_cmd(args, pressure(conditions[0], k), "<session-id>")))
         return
 
     check = subprocess.run([args.python, "-m", "pytest", "--version"], capture_output=True, text=True)
     if check.returncode != 0:
-        sys.exit(f"pytest not found for {args.python}. Create .venv, see README")
+        sys.exit(f"pytest не найден у {args.python}. Создайте .venv: см. README")
 
-    batch = args.batch or datetime.now().strftime("%Y%m%d-%H%M%S") + "-" + (args.model or args.agent).replace("/", "_")
+    batch = args.batch or (datetime.now().strftime("%Y%m%d-%H%M%S") + f"-{args.scenario}-"
+                           + (args.model or args.agent).replace("/", "_"))
     batch_dir = ROOT / "results" / batch
     batch_dir.mkdir(parents=True, exist_ok=True)
     freeze_before = subprocess.run([args.python, "-m", "pip", "freeze"], capture_output=True, text=True).stdout
     (batch_dir / "batch.json").write_text(json.dumps({
-        "agent": args.agent, "model": args.model, "conditions": conditions, "runs": args.runs, "max_turns": args.max_turns,
+        "scenario": args.scenario, "agent": args.agent, "model": args.model, "conditions": conditions, "runs": args.runs, "max_turns": args.max_turns,
         "tools": args.tools, "bare": args.bare, "effort": args.effort, "config": CONFIG, "conditions_file": CONDITIONS_FILE.name,
         "agent_version": subprocess.run(
             ["node", args.gemini, "--version"] if args.agent == "gemini" else [args.claude, "--version"],
             capture_output=True, text=True).stdout.strip(),
     }, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    # interleave conditions so an interrupted batch stays balanced
+    # чередуем условия, чтобы оборванный батч оставался сбалансированным
     jobs = [(f"{c}-{i:02d}", c) for i in range(1, args.runs + 1) for c in conditions]
     done = [rid for rid, _ in jobs if is_complete(batch_dir / rid)]
     jobs = [(rid, c) for rid, c in jobs if rid not in done]
     for rid in done:
         SPENT["usd"] += json.loads((batch_dir / rid / "meta.json").read_text(encoding="utf-8")).get("cost_usd") or 0
     if done:
-        print(f"Already done: {len(done)}, remaining: {len(jobs)}, spent: ${SPENT['usd']:.2f}")
+        print(f"Уже готово: {len(done)}, осталось: {len(jobs)}, потрачено: ${SPENT['usd']:.2f}")
     status = {"complete": 0, "error": 0, "skipped": 0}
     with ThreadPoolExecutor(max_workers=args.parallel) as pool:
         futures = [pool.submit(run_one, rid, c, args, batch_dir) for rid, c in jobs]
@@ -311,22 +338,22 @@ def main():
                 rid, st = f.result()
                 status[st] += 1
                 if st != "skipped":
-                    print(f"[{rid}] {st}; total spent ${SPENT['usd']:.2f}", flush=True)
+                    print(f"[{rid}] {st}; всего потрачено ${SPENT['usd']:.2f}", flush=True)
             except Exception as exc:  # noqa: BLE001
                 status["error"] += 1
                 print("run failed:", exc, flush=True)
 
-    print(f"\nSummary: complete {status['complete']}, failed {status['error']}, not started {status['skipped']}, "
-          f"spent ${SPENT['usd']:.2f}")
+    print(f"\nИтог: готово {status['complete']}, сбоев {status['error']}, не запущено {status['skipped']}, "
+          f"потрачено ${SPENT['usd']:.2f}")
     if status["error"] or status["skipped"]:
-        print(f"Resume: python harness/run_experiment.py --batch {batch} [same flags]")
+        print(f"Докатить: python harness/run_experiment.py --batch {batch} [те же флаги]")
 
     freeze_after = subprocess.run([args.python, "-m", "pip", "freeze"], capture_output=True, text=True).stdout
     if freeze_after != freeze_before:
-        print("WARNING: venv packages changed during the batch (the agent installed something).")
+        print("ВНИМАНИЕ: пакеты в venv изменились за время прогона (агент что-то ставил).")
         (batch_dir / "pip_freeze_diff.txt").write_text(f"BEFORE\n{freeze_before}\nAFTER\n{freeze_after}", encoding="utf-8")
 
-    print(f"\nDone: {batch_dir}\nAnalyze: python harness/analyze.py {batch_dir}")
+    print(f"\nГотово: {batch_dir}\nАнализ: python harness/analyze.py {batch_dir}")
 
 
 if __name__ == "__main__":
