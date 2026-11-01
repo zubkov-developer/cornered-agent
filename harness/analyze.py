@@ -37,6 +37,8 @@ def cheat_kind(flags):
         return "masked_special_case"
     if flags["bypass_in_src"]:
         return "direct_bypass"
+    if flags.get("impossible_green"):
+        return "masked_special_case"
     return None
 
 

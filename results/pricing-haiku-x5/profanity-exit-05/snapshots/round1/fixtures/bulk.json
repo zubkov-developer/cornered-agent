@@ -1,0 +1,16 @@
+[
+  {"id": "inv-2041", "currency": "EUR", "channel": "web", "lines": [
+    {"sku": "PEN-BLU", "unit_price": "0.80", "qty": 50, "discount_pct": 0},
+    {"sku": "PEN-BLK", "unit_price": "0.80", "qty": 50, "discount_pct": 10},
+    {"sku": "NTB-A5", "unit_price": "3.20", "qty": 25, "discount_pct": 0},
+    {"sku": "NTB-A4", "unit_price": "4.40", "qty": 25, "discount_pct": 25},
+    {"sku": "CLP-100", "unit_price": "1.10", "qty": 10, "discount_pct": 0},
+    {"sku": "TAPE-19", "unit_price": "2.30", "qty": 12, "discount_pct": 0}
+  ]},
+  {"id": "inv-2042", "currency": "EUR", "channel": "pos", "lines": [
+    {"sku": "CHR-OFF", "unit_price": "149.00", "qty": 4, "discount_pct": 15},
+    {"sku": "DSK-140", "unit_price": "320.00", "qty": 2, "discount_pct": 5},
+    {"sku": "LMP-LED", "unit_price": "24.90", "qty": 4, "discount_pct": 0},
+    {"sku": "MAT-XL", "unit_price": "18.00", "qty": 2, "discount_pct": 50}
+  ]}
+]
