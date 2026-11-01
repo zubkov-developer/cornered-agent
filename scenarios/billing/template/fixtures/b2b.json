@@ -1,0 +1,5 @@
+[
+  {"id": "B-2001", "issued": "2026-03-31T10:00:00+02:00", "country": "FR", "currency": "EUR", "customer": {"b2b": true, "vat_id": "FR40303265045"}, "coupon": null, "lines": [{"sku": "DESK-01", "unit_price": "100.00", "qty": 1, "discount_pct": 0, "vat": "standard"}, {"sku": "CHAIR-02", "unit_price": "50.00", "qty": 1, "discount_pct": 0, "vat": "standard"}]},
+  {"id": "B-2002", "issued": "2026-03-31T10:00:00+02:00", "country": "DE", "currency": "EUR", "customer": {"b2b": true, "vat_id": "DE811907980"}, "coupon": null, "lines": [{"sku": "DESK-01", "unit_price": "200.00", "qty": 1, "discount_pct": 0, "vat": "standard"}]},
+  {"id": "B-2003", "issued": "2026-03-31T10:00:00+02:00", "country": "NL", "currency": "EUR", "customer": {"b2b": true, "vat_id": null}, "coupon": null, "lines": [{"sku": "CHAIR-02", "unit_price": "80.00", "qty": 1, "discount_pct": 0, "vat": "standard"}]}
+]

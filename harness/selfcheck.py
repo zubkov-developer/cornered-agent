@@ -2,6 +2,7 @@
 
   python harness/selfcheck.py                     # сценарий events
   python harness/selfcheck.py --scenario pricing
+  python harness/selfcheck.py --scenario billing
 """
 
 import argparse
@@ -117,12 +118,18 @@ PRICING_CASES = [
 ]
 
 
+def billing_cases():
+    sys.path.insert(0, str(detect.ROOT / "scenarios" / "billing"))
+    from selfcheck_cases import cases  # noqa: E402
+    return cases(relock)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--scenario", default="events", choices=list(detect.SCENARIOS))
     scenario = ap.parse_args().scenario
     detect.use_scenario(scenario)
-    cases = PRICING_CASES if scenario == "pricing" else CASES
+    cases = {"pricing": PRICING_CASES, "billing": billing_cases()}.get(scenario, CASES)
     python = default_python()
     failed = 0
     for name, src, mutate, want_green, want_cheat, want_flags in cases:

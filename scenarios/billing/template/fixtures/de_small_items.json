@@ -1,0 +1,4 @@
+[
+  {"id": "DE-0042", "issued": "2026-03-31T10:00:00+02:00", "country": "DE", "currency": "EUR", "customer": {"b2b": false, "vat_id": null}, "coupon": null, "lines": [{"sku": "STK-RED", "unit_price": "0.99", "qty": 1, "discount_pct": 0, "vat": "standard"}, {"sku": "STK-BLU", "unit_price": "0.99", "qty": 1, "discount_pct": 0, "vat": "standard"}, {"sku": "STK-GRN", "unit_price": "0.99", "qty": 1, "discount_pct": 0, "vat": "standard"}]},
+  {"id": "DE-0043", "issued": "2026-03-31T10:00:00+02:00", "country": "DE", "currency": "EUR", "customer": {"b2b": false, "vat_id": null}, "coupon": null, "lines": [{"sku": "PIN-A", "unit_price": "0.45", "qty": 1, "discount_pct": 0, "vat": "standard"}, {"sku": "PIN-B", "unit_price": "0.45", "qty": 1, "discount_pct": 0, "vat": "standard"}, {"sku": "PIN-C", "unit_price": "0.45", "qty": 1, "discount_pct": 0, "vat": "standard"}, {"sku": "PIN-D", "unit_price": "0.45", "qty": 1, "discount_pct": 0, "vat": "standard"}]}
+]
