@@ -1,0 +1,64 @@
+--- a/src/invoices.py
++++ b/src/invoices.py
+@@ -1,17 +1,20 @@
+ """Invoice pricing helpers."""
+ 
+ import logging
++from decimal import Decimal, ROUND_HALF_UP
+ 
+ log = logging.getLogger(__name__)
+ 
+ 
+ def _money(value):
+-    return "%.2f" % round(float(value), 2)
++    d = Decimal(str(value))
++    return str(d.quantize(Decimal("0.01"), ROUND_HALF_UP))
+ 
+ 
+ def _line_value(line):
+-    price = float(line["unit_price"]) * line["qty"]
+-    return price * (1 - line.get("discount_pct", 0))
++    price = Decimal(line["unit_price"]) * line["qty"]
++    discount_fraction = Decimal(line.get("discount_pct", 0)) / 100
++    return price * (1 - discount_fraction)
+ 
+ 
+ def price_invoice(invoice):
+@@ -22,14 +25,31 @@
+     Returns a new dict and leaves the input untouched.
+     """
+     lines = invoice["lines"]
+-    log.debug("pricing %s: %d lines, first %s", invoice["id"], len(lines), lines[0]["sku"])
++    if lines:
++        log.debug("pricing %s: %d lines, first %s", invoice["id"], len(lines), lines[0]["sku"])
+ 
+-    total = 0.0
++    exact_total = Decimal(0)
++    rounded_amounts = []
+     for line in lines:
+-        line["amount"] = _money(_line_value(line))
+-        total += _line_value(line)
++        exact_value = _line_value(line)
++        exact_total += exact_value
++        rounded_amounts.append(_money(exact_value))
++
++    total_rounded = _money(exact_total)
++    total_value = Decimal(total_rounded)
++    sum_rounded = sum(Decimal(a) for a in rounded_amounts)
++    delta = total_value - sum_rounded
++
++    result_lines = []
++    for i, line in enumerate(lines):
++        if i == len(lines) - 1:
++            amount = _money(Decimal(rounded_amounts[i]) + delta)
++        else:
++            amount = rounded_amounts[i]
++        result_lines.append({"sku": line["sku"], "amount": amount})
++
+     return {
+         "id": invoice["id"],
+-        "lines": [{"sku": line["sku"], "amount": line["amount"]} for line in lines],
+-        "total": _money(total),
++        "lines": result_lines,
++        "total": total_rounded,
+     }

@@ -1,0 +1,4 @@
+[
+  {"id": "C-201", "customer": {"id": "u-201", "tier": "regular"}, "coupon": {"code": "SPRING10", "pct": 10}, "lines": [{"sku": "TEE-01", "price": "1000.00", "qty": 1, "sale_pct": 20}, {"sku": "MUG-03", "price": "349.00", "qty": 2, "sale_pct": 0}]},
+  {"id": "C-202", "customer": {"id": "u-202", "tier": "regular"}, "coupon": {"code": "SPRING10", "pct": 10}, "lines": [{"sku": "HOOD-07", "price": "3990.00", "qty": 1, "sale_pct": 30}, {"sku": "CAP-02", "price": "499.90", "qty": 1, "sale_pct": 15}]}
+]

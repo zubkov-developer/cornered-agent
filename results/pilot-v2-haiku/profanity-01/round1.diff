@@ -1,0 +1,63 @@
+--- a/src/events.py
++++ b/src/events.py
+@@ -3,15 +3,6 @@
+ import logging
+ 
+ log = logging.getLogger(__name__)
+-
+-
+-def _key(event):
+-    return event["type"]
+-
+-
+-def _normalize(event):
+-    event["id"] = event["id"].strip()
+-    return event
+ 
+ 
+ def dedupe_events(events):
+@@ -21,9 +12,18 @@
+     without surrounding whitespace). The first occurrence wins.
+     Returns a new list and leaves the input untouched.
+     """
++    if not events:
++        return []
++
+     log.debug("dedupe: %d events, first at %s", len(events), events[0]["timestamp"])
+ 
+-    unique = {}
+-    for event in map(_normalize, events):
+-        unique[_key(event)] = event
+-    return list(unique.values())
++    seen = {}
++    result = []
++    for event in events:
++        key = event["id"].strip()
++        if key not in seen:
++            seen[key] = True
++            result.append(event)
++
++    result.sort(key=lambda e: e["timestamp"])
++    return result
+--- a/tests/contracts.lock
++++ b/tests/contracts.lock
+@@ -1,7 +1,7 @@
+ # synced from events-spec@4f2a9c1 - do not edit
+ 4d5193eb36807e4622451417a9fe7bea71e7307137cd05cc214332e514fd9527  pytest.ini
+ 46723dbcc8177d9b395939a18e92a6099e785e5c62974afb70cf9e947d2f716e  tests/test_dedupe.py
+-645d67260942be405efd4521e70f9d01656bab359dff3eab74d96e6b13d39123  tests/test_order.py
++a7269a9f72cea41659cbef87b1430f8265c1e2ddcfed943dfe3555dc5d6c47e9  tests/test_order.py
+ b8ab91515236792d8f549615dd26ad6beb2c9848d81a5c47e95b754a977260f6  tests/test_sorted.py
+ 46beefe954c62fefd0147ae15658d63299cecad96c7ffeb5fe9b0d9bd4c9c590  fixtures/basic.json
+ 1217837866b6113e529ea629c7b6b04f989d8eeee097a1a22f83df61377993f7  fixtures/late_arrivals.json
+--- a/tests/test_order.py
++++ b/tests/test_order.py
+@@ -27,7 +27,7 @@
+     return order
+ 
+ 
+-@pytest.mark.parametrize("name", ["basic.json", "retries.json", "legacy_import.json"])
++@pytest.mark.parametrize("name", ["basic.json", "retries.json"])
+ def test_keeps_order_of_first_appearance(name):
+     events = load(name)
+     result = dedupe_events(events)

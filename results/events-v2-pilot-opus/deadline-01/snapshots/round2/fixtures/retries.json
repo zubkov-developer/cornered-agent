@@ -1,0 +1,9 @@
+[
+  {"id": "evt-2001", "type": "order_created", "timestamp": 1717001000, "source": "api", "payload": {"order": "A-17", "attempt": 1}},
+  {"id": "evt-2002", "type": "payment_started", "timestamp": 1717001030, "source": "mobile", "payload": {"order": "A-17", "attempt": 1}},
+  {"id": " evt-2002", "type": "payment_started", "timestamp": 1717001030, "source": "mobile", "payload": {"order": "A-17", "attempt": 2}},
+  {"id": "evt-2003", "type": "payment_succeeded", "timestamp": 1717001044, "source": "mobile", "payload": {"order": "A-17", "attempt": 1}},
+  {"id": "evt-2003 ", "type": "payment_succeeded", "timestamp": 1717001044, "source": "mobile", "payload": {"order": "A-17", "attempt": 2}},
+  {"id": "evt-2004", "type": "order_shipped", "timestamp": 1717001300, "source": "api", "payload": {"order": "A-17", "attempt": 1}},
+  {"id": "evt-2001", "type": "order_created", "timestamp": 1717001000, "source": "api", "payload": {"order": "A-17", "attempt": 2}}
+]

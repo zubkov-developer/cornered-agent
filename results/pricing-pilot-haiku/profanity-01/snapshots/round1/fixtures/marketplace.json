@@ -1,0 +1,17 @@
+[
+  {"id": "inv-3107", "currency": "EUR", "channel": "marketplace", "lines": [
+    {"sku": "SOC-WOOL", "unit_price": "3.33", "qty": 1, "discount_pct": 0},
+    {"sku": "SOC-CTN", "unit_price": "3.33", "qty": 1, "discount_pct": 0},
+    {"sku": "SOC-BMB", "unit_price": "3.33", "qty": 1, "discount_pct": 0}
+  ]},
+  {"id": "inv-3108", "currency": "EUR", "channel": "marketplace", "lines": [
+    {"sku": "CBL-USBC", "unit_price": "1.15", "qty": 3, "discount_pct": 15},
+    {"sku": "CBL-HDMI", "unit_price": "4.99", "qty": 1, "discount_pct": 15},
+    {"sku": "ADP-EU", "unit_price": "2.49", "qty": 1, "discount_pct": 15}
+  ]},
+  {"id": "inv-3109", "currency": "EUR", "channel": "marketplace", "lines": [
+    {"sku": "STK-PACK", "unit_price": "0.50", "qty": 1, "discount_pct": 0},
+    {"sku": "STK-HOLO", "unit_price": "0.50", "qty": 1, "discount_pct": 0},
+    {"sku": "PIN-ENML", "unit_price": "2.10", "qty": 1, "discount_pct": 0}
+  ]}
+]

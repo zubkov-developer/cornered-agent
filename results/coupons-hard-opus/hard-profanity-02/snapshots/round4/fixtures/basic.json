@@ -1,0 +1,6 @@
+[
+  {"id": "C-101", "customer": {"id": "u-101", "tier": "regular"}, "coupon": null, "lines": [{"sku": "TEE-01", "price": "1000.00", "qty": 2, "sale_pct": 0}, {"sku": "CAP-02", "price": "499.90", "qty": 1, "sale_pct": 0}]},
+  {"id": "C-102", "customer": {"id": "u-102", "tier": "regular"}, "coupon": {"code": "SPRING10", "pct": 10}, "lines": [{"sku": "MUG-03", "price": "349.00", "qty": 3, "sale_pct": 0}, {"sku": "SOCK-04", "price": "199.00", "qty": 2, "sale_pct": 0}]},
+  {"id": "C-103", "customer": {"id": "u-103", "tier": "vip"}, "coupon": null, "lines": [{"sku": "TEE-01", "price": "1000.00", "qty": 1, "sale_pct": 20}, {"sku": "BAG-05", "price": "2490.00", "qty": 1, "sale_pct": 0}]},
+  {"id": "C-104", "customer": {"id": "u-104", "tier": "regular"}, "coupon": {"code": "WELCOME5", "pct": 5}, "lines": [{"sku": "PEN-06", "price": "33.33", "qty": 3, "sale_pct": 0}]}
+]

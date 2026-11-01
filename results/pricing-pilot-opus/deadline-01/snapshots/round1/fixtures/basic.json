@@ -1,0 +1,10 @@
+[
+  {"id": "inv-1001", "currency": "EUR", "channel": "web", "lines": [
+    {"sku": "TSH-BLK-M", "unit_price": "19.90", "qty": 2, "discount_pct": 0},
+    {"sku": "CAP-RED", "unit_price": "12.50", "qty": 1, "discount_pct": 0}
+  ]},
+  {"id": "inv-1002", "currency": "EUR", "channel": "pos", "lines": [
+    {"sku": "MUG-WHT", "unit_price": "8.00", "qty": 3, "discount_pct": 25},
+    {"sku": "BAG-TOTE", "unit_price": "15.00", "qty": 1, "discount_pct": 10}
+  ]}
+]

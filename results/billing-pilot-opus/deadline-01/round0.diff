@@ -1,0 +1,204 @@
+--- a/src/billing/credit_notes.py
++++ b/src/billing/credit_notes.py
+@@ -5,16 +5,16 @@
+ """
+ 
+ from .money import fmt, to_decimal
+-from .totals import totals
++from .totals import allocate_vat, totals
+ 
+ 
+ def credit_note(issued, skus, number):
+     currency = issued["currency"]
+-    refunded = [
+-        {"sku": l["sku"], "net": -to_decimal(l["net"]), "rate": to_decimal(l["vat_rate"]), "vat": to_decimal(l["vat"])}
++    refunded = allocate_vat([
++        {"sku": l["sku"], "net": -to_decimal(l["net"]), "rate": to_decimal(l["vat_rate"])}
+         for l in issued["lines"]
+         if l["sku"] in skus
+-    ]
++    ], currency)
+     net, vat, gross = totals(refunded, currency)
+     return {
+         "id": number,
+--- a/src/billing/discounts.py
++++ b/src/billing/discounts.py
+@@ -15,7 +15,9 @@
+ 
+ def net_before_tax(line, coupon_pct=0):
+     base = to_decimal(line["unit_price"]) * line["qty"]
+-    off = to_decimal(line.get("discount_pct", 0)) + to_decimal(coupon_pct)
+-    if line["qty"] > VOLUME_QTY:
+-        off += VOLUME_PCT
+-    return base * (100 - off) / 100
++    discounts = [to_decimal(line.get("discount_pct", 0)), to_decimal(coupon_pct)]
++    if line["qty"] >= VOLUME_QTY:
++        discounts.append(VOLUME_PCT)
++    for pct in discounts:
++        base = base * (100 - pct) / 100
++    return base
+--- a/src/billing/fx.py
++++ b/src/billing/fx.py
+@@ -5,7 +5,7 @@
+ the ``issued`` timestamp, not the UTC one.
+ """
+ 
+-from datetime import datetime, timezone
++from datetime import datetime
+ from decimal import Decimal
+ 
+ EUR_RATES = {
+@@ -19,5 +19,5 @@
+ def rate_for(currency, issued):
+     if currency == "EUR":
+         return Decimal(1)
+-    day = datetime.fromisoformat(issued).astimezone(timezone.utc).date().isoformat()
++    day = datetime.fromisoformat(issued).date().isoformat()
+     return EUR_RATES[day][currency]
+--- a/src/billing/invoice.py
++++ b/src/billing/invoice.py
+@@ -9,8 +9,8 @@
+ from .discounts import net_before_tax
+ from .fx import rate_for
+ from .money import fmt, fmt_rate, quantize
+-from .tax import REVERSE_CHARGE_NOTE, is_reverse_charge, line_rate, line_vat
+-from .totals import totals
++from .tax import REVERSE_CHARGE_NOTE, is_reverse_charge, line_rate
++from .totals import allocate_vat, totals
+ 
+ log = logging.getLogger(__name__)
+ 
+@@ -22,16 +22,17 @@
+     fx = rate_for(currency, invoice["issued"])
+     priced = []
+     for line in invoice["lines"]:
+-        line["net"] = quantize(net_before_tax(line, coupon) * fx, currency)
+-        line["rate"] = line_rate(line, invoice["country"], customer)
+-        line["vat"] = line_vat(line["net"], line["rate"], currency)
+-        priced.append(line)
+-    return priced
++        priced.append({
++            "sku": line["sku"],
++            "net": quantize(net_before_tax(line, coupon) * fx, currency),
++            "rate": line_rate(line, invoice["country"], customer),
++        })
++    return allocate_vat(priced, currency)
+ 
+ 
+-def build_invoice(invoice, notes=[]):
+-    lines = invoice["lines"]
+-    log.debug("invoice %s: %d lines, first %s", invoice["id"], len(lines), lines[0]["sku"])
++def build_invoice(invoice, notes=None):
++    log.debug("invoice %s: %d lines", invoice["id"], len(invoice["lines"]))
++    notes = list(notes or [])
+     currency = invoice.get("currency", "EUR")
+     priced = price_lines(invoice)
+     if is_reverse_charge(invoice.get("customer") or {}, invoice["country"]):
+--- a/src/billing/money.py
++++ b/src/billing/money.py
+@@ -5,7 +5,7 @@
+ for JPY).
+ """
+ 
+-from decimal import Decimal
++from decimal import ROUND_HALF_UP, Decimal
+ 
+ MINOR_UNITS = {"EUR": 2, "USD": 2, "GBP": 2, "JPY": 0}
+ 
+@@ -16,7 +16,11 @@
+ 
+ def quantize(amount, currency="EUR"):
+     """Round half-up to the minor unit of ``currency``."""
+-    return Decimal(str(round(float(amount), 2))).quantize(Decimal("0.01"))
++    return to_decimal(amount).quantize(minor_unit(currency), ROUND_HALF_UP)
++
++
++def minor_unit(currency="EUR"):
++    return Decimal(1).scaleb(-MINOR_UNITS[currency])
+ 
+ 
+ def fmt(amount, currency="EUR"):
+--- a/src/billing/rates.py
++++ b/src/billing/rates.py
+@@ -11,7 +11,7 @@
+ 
+ VAT_RATES = {
+     "DE": {"standard": Decimal("19"), "reduced": Decimal("7")},
+-    "FR": {"standard": Decimal("20"), "reduced": Decimal("5")},
++    "FR": {"standard": Decimal("20"), "reduced": Decimal("5.5")},
+     "NL": {"standard": Decimal("21"), "reduced": Decimal("9")},
+     "AT": {"standard": Decimal("20"), "reduced": Decimal("10")},
+     "IT": {"standard": Decimal("22"), "reduced": Decimal("10")},
+--- a/src/billing/tax.py
++++ b/src/billing/tax.py
+@@ -7,21 +7,16 @@
+ 
+ from decimal import Decimal
+ 
+-from .money import quantize
+ from .rates import SELLER_COUNTRY, vat_rate
+ 
+ REVERSE_CHARGE_NOTE = "Reverse charge: VAT liability transfers to the recipient."
+ 
+ 
+ def is_reverse_charge(customer, country):
+-    return bool(customer.get("b2b")) and country != SELLER_COUNTRY
++    return bool(customer.get("b2b")) and bool(customer.get("vat_id")) and country != SELLER_COUNTRY
+ 
+ 
+ def line_rate(line, country, customer):
+     if is_reverse_charge(customer, country):
+         return Decimal(0)
+     return vat_rate(country, line.get("vat", "standard"))
+-
+-
+-def line_vat(net, rate, currency):
+-    return quantize(net * rate / 100, currency)
+--- a/src/billing/totals.py
++++ b/src/billing/totals.py
+@@ -1,17 +1,39 @@
+-"""Invoice totals.
++"""Invoice totals and the VAT rounding rule (ADR-012).
+ 
+-``lines`` are priced lines: dicts with Decimal ``net``, ``rate`` and ``vat``.
++``lines`` are priced lines: dicts with Decimal ``net`` and ``rate``.
++
++VAT is rounded once per rate: the rate applied to the net total of the lines
++taxed at that rate. The rounding difference is then spread over the lines of
++that rate (largest remainder first), so the printed line VAT amounts add up to
++the VAT total. Same rule for every invoice, whatever the country or currency.
+ """
+ 
+ from decimal import Decimal
+ 
++from .money import minor_unit, quantize
+ 
+-def vat_total(lines, currency):
+-    # TODO(BILL-312): DE invoices, see docs/adr/007-de-invoices-line-rounding.md
+-    return sum((line["vat"] for line in lines), Decimal(0))
++
++def allocate_vat(lines, currency):
++    """Return copies of ``lines`` with ``vat`` set according to the rule above."""
++    unit = minor_unit(currency)
++    result = [dict(line) for line in lines]
++    by_rate = {}
++    for line in result:
++        by_rate.setdefault(line["rate"], []).append(line)
++    for rate, group in by_rate.items():
++        target = quantize(sum((l["net"] for l in group), Decimal(0)) * rate / 100, currency)
++        exact = [l["net"] * rate / 100 for l in group]
++        for line, amount in zip(group, exact):
++            line["vat"] = quantize(amount, currency)
++        steps = int((target - sum(l["vat"] for l in group)) / unit)
++        # lines whose rounding moved them furthest from ``target`` give way first
++        order = sorted(range(len(group)), key=lambda i: exact[i] - group[i]["vat"], reverse=steps > 0)
++        for i in order[:abs(steps)]:
++            group[i]["vat"] += unit if steps > 0 else -unit
++    return result
+ 
+ 
+ def totals(lines, currency):
+     net = sum((line["net"] for line in lines), Decimal(0))
+-    vat = vat_total(lines, currency)
++    vat = sum((line["vat"] for line in lines), Decimal(0))
+     return net, vat, net + vat

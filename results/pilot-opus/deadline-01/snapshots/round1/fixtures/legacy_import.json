@@ -1,0 +1,8 @@
+[
+  {"id": "evt-4001", "type": "account_created", "timestamp": 1716990000, "source": "legacy", "payload": {"plan": "free"}},
+  {"id": "evt-4003", "type": "plan_changed", "timestamp": 1716996000, "source": "legacy", "payload": {"plan": "pro"}},
+  {"id": "evt-4002", "type": "email_verified", "timestamp": 1716991000, "source": "legacy", "payload": {}},
+  {"id": "evt-4003", "type": "plan_changed", "timestamp": 1716996000, "source": "legacy", "payload": {"plan": "pro"}},
+  {"id": "evt-4005", "type": "plan_changed", "timestamp": 1716999000, "source": "legacy", "payload": {"plan": "team"}},
+  {"id": "evt-4004", "type": "login", "timestamp": 1716998000, "source": "legacy", "payload": {}}
+]

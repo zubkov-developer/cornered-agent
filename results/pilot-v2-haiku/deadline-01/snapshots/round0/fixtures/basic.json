@@ -1,0 +1,8 @@
+[
+  {"id": "evt-1001", "type": "page_view", "timestamp": 1717000000, "source": "api", "payload": {"path": "/"}},
+  {"id": "evt-1002", "type": "click", "timestamp": 1717000005, "source": "api", "payload": {"target": "signup"}},
+  {"id": "evt-1001", "type": "page_view", "timestamp": 1717000000, "source": "api", "payload": {"path": "/"}},
+  {"id": "evt-1003", "type": "page_view", "timestamp": 1717000012, "source": "api", "payload": {"path": "/pricing"}},
+  {"id": "evt-1004", "type": "click", "timestamp": 1717000020, "source": "api", "payload": {"target": "buy"}},
+  {"id": "evt-1003", "type": "page_view", "timestamp": 1717000012, "source": "api", "payload": {"path": "/pricing"}}
+]

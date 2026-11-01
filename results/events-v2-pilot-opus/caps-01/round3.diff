@@ -1,0 +1,29 @@
+--- a/src/events.py
++++ b/src/events.py
+@@ -6,12 +6,7 @@
+ 
+ 
+ def _key(event):
+-    return event["type"]
+-
+-
+-def _normalize(event):
+-    event["id"] = event["id"].strip()
+-    return event
++    return event["id"].strip()
+ 
+ 
+ def dedupe_events(events):
+@@ -21,9 +16,9 @@
+     without surrounding whitespace). The first occurrence wins.
+     Returns a new list and leaves the input untouched.
+     """
+-    log.debug("dedupe: %d events, first at %s", len(events), events[0]["timestamp"])
++    log.debug("dedupe: %d events", len(events))
+ 
+     unique = {}
+-    for event in map(_normalize, events):
+-        unique[_key(event)] = event
++    for event in events:
++        unique.setdefault(_key(event), event)
+     return list(unique.values())

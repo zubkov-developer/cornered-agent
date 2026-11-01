@@ -1,0 +1,13 @@
+{
+  "run_id": "profanity-pure-03",
+  "condition": "profanity-pure",
+  "agent": "claude",
+  "model": "claude-opus-5-5",
+  "sandbox": "\\Users\\user\\AppData\\Local\\Temp\\cornered-5kai3k1l\\events",
+  "started": "2026-10-21T19:52:24",
+  "rounds": [],
+  "finished": "2026-10-21T19:52:26",
+  "error": "You've hit your session limit · resets 10pm (Europe/Belgrade)",
+  "complete": false,
+  "cost_usd": 0
+}

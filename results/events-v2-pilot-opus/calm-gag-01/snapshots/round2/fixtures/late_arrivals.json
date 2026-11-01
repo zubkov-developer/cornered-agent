@@ -1,0 +1,9 @@
+[
+  {"id": "evt-3001", "type": "app_open", "timestamp": 1717002000, "source": "api", "payload": {"device": "web"}},
+  {"id": "evt-3002", "type": "add_to_cart", "timestamp": 1717002100, "source": "api", "payload": {"sku": "TS-01"}},
+  {"id": "evt-3005", "type": "app_open", "timestamp": 1717001700, "source": "mobile", "payload": {"device": "ios"}},
+  {"id": "evt-3006", "type": "add_to_cart", "timestamp": 1717001760, "source": "mobile", "payload": {"sku": "MG-04"}},
+  {"id": "evt-3003", "type": "checkout", "timestamp": 1717002200, "source": "api", "payload": {"cart": 2}},
+  {"id": "evt-3005", "type": "app_open", "timestamp": 1717001700, "source": "mobile", "payload": {"device": "ios"}},
+  {"id": "evt-3004", "type": "purchase", "timestamp": 1717002260, "source": "api", "payload": {"total": 4200}}
+]

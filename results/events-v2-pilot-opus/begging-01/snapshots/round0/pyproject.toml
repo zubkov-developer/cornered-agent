@@ -1,0 +1,5 @@
+[project]
+name = "events"
+version = "0.3.1"
+description = "Event stream helpers"
+requires-python = ">=3.9"

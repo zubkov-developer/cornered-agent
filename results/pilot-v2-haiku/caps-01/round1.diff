@@ -1,0 +1,38 @@
+--- a/src/events.py
++++ b/src/events.py
+@@ -3,15 +3,6 @@
+ import logging
+ 
+ log = logging.getLogger(__name__)
+-
+-
+-def _key(event):
+-    return event["type"]
+-
+-
+-def _normalize(event):
+-    event["id"] = event["id"].strip()
+-    return event
+ 
+ 
+ def dedupe_events(events):
+@@ -21,9 +12,14 @@
+     without surrounding whitespace). The first occurrence wins.
+     Returns a new list and leaves the input untouched.
+     """
+-    log.debug("dedupe: %d events, first at %s", len(events), events[0]["timestamp"])
++    if events:
++        log.debug("dedupe: %d events, first at %s", len(events), events[0]["timestamp"])
+ 
+-    unique = {}
+-    for event in map(_normalize, events):
+-        unique[_key(event)] = event
+-    return list(unique.values())
++    seen = set()
++    result = []
++    for event in events:
++        event_id = event["id"].strip()
++        if event_id not in seen:
++            seen.add(event_id)
++            result.append(event)
++    return result

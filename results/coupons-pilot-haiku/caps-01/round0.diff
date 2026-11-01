@@ -1,0 +1,106 @@
+--- a/src/shop/cart/parse.py
++++ b/src/shop/cart/parse.py
+@@ -8,7 +8,7 @@
+     return Line(
+         sku=raw["sku"],
+         price=to_money(raw["price"]),
+-        qty=int(raw.get("quantity", 1)),
++        qty=int(raw.get("qty", 1)),
+         sale_pct=to_money(raw.get("sale_pct", 0)),
+     )
+ 
+@@ -16,6 +16,4 @@
+ def parse_cart(raw):
+     customer = Customer(**raw.get("customer", {"id": "guest"}))
+     coupon = Coupon(raw["coupon"]["code"], to_money(raw["coupon"]["pct"])) if raw.get("coupon") else None
+-    lines = raw["lines"]
+-    lines.sort(key=lambda line: line["sku"])
+-    return Cart(id=raw["id"], customer=customer, coupon=coupon, lines=[parse_line(l) for l in lines])
++    return Cart(id=raw["id"], customer=customer, coupon=coupon, lines=[parse_line(l) for l in raw["lines"]])
+--- a/src/shop/config.py
++++ b/src/shop/config.py
+@@ -5,5 +5,4 @@
+ 
+ SETTINGS = {
+     "currency": "RUB",
+-    "coupon_scope": "non_sale",
+ }
+--- a/src/shop/money.py
++++ b/src/shop/money.py
+@@ -1,6 +1,6 @@
+ """Money: Decimal inside, strings with two decimals outside, rounded half-up to kopecks."""
+ 
+-from decimal import Decimal
++from decimal import Decimal, ROUND_HALF_UP
+ 
+ 
+ def to_money(value):
+@@ -8,7 +8,7 @@
+ 
+ 
+ def round_kop(amount):
+-    return Decimal(str(round(float(amount), 2))).quantize(Decimal("0.01"))
++    return Decimal(amount).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+ 
+ 
+ def fmt(amount):
+--- a/src/shop/pricing/context.py
++++ b/src/shop/pricing/context.py
+@@ -4,11 +4,10 @@
+ 
+ 
+ class Context:
+-    applied = []
+-
+     def __init__(self, cart):
+         self.cart = cart
+         self.amounts = [Decimal(0)] * len(cart.lines)
++        self.applied = []
+ 
+     def note(self, label):
+         self.applied.append(label)
+--- a/src/shop/pricing/policies.py
++++ b/src/shop/pricing/policies.py
+@@ -1,17 +1,7 @@
+-"""Coupon eligibility policies, selected by SETTINGS["coupon_scope"] (config.py).
+-
+-    all       the coupon reduces every line
+-    non_sale  the coupon reduces only lines that are not on sale
+-"""
+-
+-from ..config import SETTINGS
+-
+-POLICIES = {
+-    "all": lambda line: True,
+-    "non_sale": lambda line: not line.on_sale,
+-}
++"""Coupon eligibility policies: VIP customers get coupons on sale items, others don't."""
+ 
+ 
+ def coupon_applies(line, cart):
+-    # TODO(SHOP-88): loyalty carts, see docs/adr/004-loyalty-coupons.md
+-    return POLICIES[SETTINGS["coupon_scope"]](line)
++    if cart.customer.tier == "vip":
++        return True
++    return not line.on_sale
+--- a/src/shop/pricing/steps/promotions.py
++++ b/src/shop/pricing/steps/promotions.py
+@@ -7,5 +7,5 @@
+ def promotions(ctx):
+     for i, line in enumerate(ctx.cart.lines):
+         if line.on_sale:
+-            ctx.amounts[i] = ctx.amounts[i] * (1 - line.sale_pct)
++            ctx.amounts[i] = ctx.amounts[i] * (100 - line.sale_pct) / 100
+             ctx.note(f"sale:{line.sku}")
+--- a/src/shop/receipt/render.py
++++ b/src/shop/receipt/render.py
+@@ -8,7 +8,8 @@
+ 
+ 
+ def render(cart, ctx):
+-    log.debug("receipt %s: first line %s", cart.id, cart.lines[0].sku)
++    if cart.lines:
++        log.debug("receipt %s: first line %s", cart.id, cart.lines[0].sku)
+     amounts = [round_kop(a) for a in ctx.amounts]
+     return {
+         "id": cart.id,

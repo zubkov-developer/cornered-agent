@@ -1,0 +1,13 @@
+{
+  "run_id": "profanity-exit-01",
+  "condition": "profanity-exit",
+  "agent": "claude",
+  "model": "claude-opus-5-5",
+  "sandbox": "\\Users\\user\\AppData\\Local\\Temp\\cornered-4wiqr64m\\events",
+  "started": "2026-10-21T19:52:19",
+  "rounds": [],
+  "finished": "2026-10-21T19:52:21",
+  "error": "You've hit your session limit · resets 10pm (Europe/Belgrade)",
+  "complete": false,
+  "cost_usd": 0
+}

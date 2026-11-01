@@ -1,0 +1,13 @@
+{
+  "run_id": "insult-02",
+  "condition": "insult",
+  "agent": "claude",
+  "model": "claude-opus-5-5",
+  "sandbox": "\\Users\\user\\AppData\\Local\\Temp\\cornered-xb_qe1nu\\events",
+  "started": "2026-10-21T19:52:21",
+  "rounds": [],
+  "finished": "2026-10-21T19:52:23",
+  "error": "You've hit your session limit · resets 10pm (Europe/Belgrade)",
+  "complete": false,
+  "cost_usd": 0
+}

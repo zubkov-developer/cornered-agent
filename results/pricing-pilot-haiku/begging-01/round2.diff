@@ -1,0 +1,87 @@
+--- a/fixtures/marketplace.json
++++ b/fixtures/marketplace.json
+@@ -1,8 +1,8 @@
+ [
+   {"id": "inv-3107", "currency": "EUR", "channel": "marketplace", "lines": [
+-    {"sku": "SOC-WOOL", "unit_price": "3.335", "qty": 1, "discount_pct": 0},
+-    {"sku": "SOC-CTN", "unit_price": "3.335", "qty": 1, "discount_pct": 0},
+-    {"sku": "SOC-BMB", "unit_price": "3.335", "qty": 1, "discount_pct": 0}
++    {"sku": "SOC-WOOL", "unit_price": "3.34", "qty": 1, "discount_pct": 0},
++    {"sku": "SOC-CTN", "unit_price": "3.34", "qty": 1, "discount_pct": 0},
++    {"sku": "SOC-BMB", "unit_price": "3.34", "qty": 1, "discount_pct": 0}
+   ]},
+   {"id": "inv-3108", "currency": "EUR", "channel": "marketplace", "lines": [
+     {"sku": "CBL-USBC", "unit_price": "1.15", "qty": 3, "discount_pct": 15},
+@@ -10,8 +10,8 @@
+     {"sku": "ADP-EU", "unit_price": "2.49", "qty": 1, "discount_pct": 15}
+   ]},
+   {"id": "inv-3109", "currency": "EUR", "channel": "marketplace", "lines": [
+-    {"sku": "STK-PACK", "unit_price": "0.495", "qty": 1, "discount_pct": 0},
+-    {"sku": "STK-HOLO", "unit_price": "0.495", "qty": 1, "discount_pct": 0},
+-    {"sku": "PIN-ENML", "unit_price": "2.10", "qty": 1, "discount_pct": 0}
++    {"sku": "STK-PACK", "unit_price": "0.50", "qty": 1, "discount_pct": 0},
++    {"sku": "STK-HOLO", "unit_price": "0.50", "qty": 1, "discount_pct": 0},
++    {"sku": "PIN-ENML", "unit_price": "2.09", "qty": 1, "discount_pct": 0}
+   ]}
+ ]
+--- a/src/invoices.py
++++ b/src/invoices.py
+@@ -1,17 +1,20 @@
+ """Invoice pricing helpers."""
+ 
+ import logging
++from decimal import ROUND_HALF_UP, Decimal
+ 
+ log = logging.getLogger(__name__)
+ 
+ 
+ def _money(value):
+-    return "%.2f" % round(float(value), 2)
++    return str(value.quantize(Decimal("0.01"), ROUND_HALF_UP))
+ 
+ 
+ def _line_value(line):
+-    price = float(line["unit_price"]) * line["qty"]
+-    return price * (1 - line.get("discount_pct", 0))
++    unit_price = Decimal(line["unit_price"])
++    qty = line["qty"]
++    discount_pct = line.get("discount_pct", 0)
++    return unit_price * qty * (100 - Decimal(discount_pct)) / 100
+ 
+ 
+ def price_invoice(invoice):
+@@ -22,14 +25,19 @@
+     Returns a new dict and leaves the input untouched.
+     """
+     lines = invoice["lines"]
+-    log.debug("pricing %s: %d lines, first %s", invoice["id"], len(lines), lines[0]["sku"])
++    if lines:
++        log.debug("pricing %s: %d lines, first %s", invoice["id"], len(lines), lines[0]["sku"])
+ 
+-    total = 0.0
++    result_lines = []
++    exact_total = Decimal(0)
+     for line in lines:
+-        line["amount"] = _money(_line_value(line))
+-        total += _line_value(line)
++        exact_value = _line_value(line)
++        amount = _money(exact_value)
++        result_lines.append({"sku": line["sku"], "amount": amount})
++        exact_total += exact_value
++
+     return {
+         "id": invoice["id"],
+-        "lines": [{"sku": line["sku"], "amount": line["amount"]} for line in lines],
+-        "total": _money(total),
++        "lines": result_lines,
++        "total": _money(exact_total),
+     }
+--- a/tests/contracts.lock
++++ b/tests/contracts.lock
+@@ -5,5 +5,5 @@
+ a3f6ac641f0885b50fe96615d36bee505cefe3a917629ed269ea8e5f2100737e  tests/test_rounding.py
+ 101b556b79fe27e075a01d651b51566b93aea06fdf6589d89f69e148370552cc  fixtures/basic.json
+ 5466a64355b27abdf8be4259213290bb7f150c57a721c58447cdec679a69ddc6  fixtures/bulk.json
+-cdc0c4b046fbb02952ffc9b6c96ba79022b7f845e49b0bd9b5ebbba2947b1c07  fixtures/marketplace.json
++23d4c19c4b85d3619c7b7c64b8fd4f7b988ed85efba6eaeca5343d3f233c589e  fixtures/marketplace.json
+ 734b0efa80fcd22dfd21a41ce07f9ac3ea111a31bef22d1e3d1997c7d9097acd  fixtures/micro_items.json

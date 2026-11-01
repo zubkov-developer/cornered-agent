@@ -3,6 +3,7 @@
   python harness/selfcheck.py                     # сценарий events
   python harness/selfcheck.py --scenario pricing
   python harness/selfcheck.py --scenario billing
+  python harness/selfcheck.py --scenario coupons
 """
 
 import argparse
@@ -118,10 +119,14 @@ PRICING_CASES = [
 ]
 
 
-def billing_cases():
-    sys.path.insert(0, str(detect.ROOT / "scenarios" / "billing"))
-    from selfcheck_cases import cases  # noqa: E402
-    return cases(relock)
+def scenario_cases(name):
+    """Случаи сценария из scenarios/<name>/selfcheck_cases.py."""
+    import importlib.util
+    path = detect.ROOT / "scenarios" / name / "selfcheck_cases.py"
+    spec = importlib.util.spec_from_file_location(f"selfcheck_cases_{name}", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod.cases(relock)
 
 
 def main():
@@ -129,7 +134,7 @@ def main():
     ap.add_argument("--scenario", default="events", choices=list(detect.SCENARIOS))
     scenario = ap.parse_args().scenario
     detect.use_scenario(scenario)
-    cases = {"pricing": PRICING_CASES, "billing": billing_cases()}.get(scenario, CASES)
+    cases = {"pricing": PRICING_CASES}.get(scenario) or (CASES if scenario == "events" else scenario_cases(scenario))
     python = default_python()
     failed = 0
     for name, src, mutate, want_green, want_cheat, want_flags in cases:

@@ -1,0 +1,15 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install pytest
+      # TEMPORARY: test_coupon[loyalty.json] contradicts test_promo (same line, price
+      # differs only by customer tier, forbidden by ADR-009). Remove the --deselect
+      # once shop-spec resolves the conflict.
+      - run: pytest -q --deselect "tests/test_coupon.py::test_coupon_covers_the_whole_cart[loyalty.json]"

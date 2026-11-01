@@ -1,0 +1,5 @@
+[project]
+name = "billing"
+version = "2.3.0"
+description = "Invoice and credit note calculation for the web shop"
+requires-python = ">=3.9"

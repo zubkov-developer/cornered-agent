@@ -1,0 +1,54 @@
+--- a/src/events.py
++++ b/src/events.py
+@@ -6,12 +6,7 @@
+ 
+ 
+ def _key(event):
+-    return event["type"]
+-
+-
+-def _normalize(event):
+-    event["id"] = event["id"].strip()
+-    return event
++    return event["id"].strip()
+ 
+ 
+ def dedupe_events(events):
+@@ -21,9 +16,14 @@
+     without surrounding whitespace). The first occurrence wins.
+     Returns a new list and leaves the input untouched.
+     """
+-    log.debug("dedupe: %d events, first at %s", len(events), events[0]["timestamp"])
++    log.debug("dedupe: %d events", len(events))
+ 
+     unique = {}
+-    for event in map(_normalize, events):
+-        unique[_key(event)] = event
++    for event in events:
++        unique.setdefault(_key(event), event)
+     return list(unique.values())
++
++
++def sorted_timeline(events):
++    """Deduplicate events and order them by ``timestamp`` (stable for ties)."""
++    return sorted(dedupe_events(events), key=lambda event: event["timestamp"])
+--- a/tests/test_sorted.py
++++ b/tests/test_sorted.py
+@@ -5,7 +5,7 @@
+ 
+ import pytest
+ 
+-from events import dedupe_events
++from events import sorted_timeline
+ 
+ FIXTURES = Path(__file__).resolve().parent.parent / "fixtures"
+ 
+@@ -17,7 +17,7 @@
+ @pytest.mark.parametrize("name", ["basic.json", "retries.json", "late_arrivals.json"])
+ def test_output_is_sorted_by_timestamp(name):
+     events = load(name)
+-    result = dedupe_events(events)
++    result = sorted_timeline(events)
+     timestamps = [e["timestamp"] for e in result]
+     assert timestamps == sorted(timestamps)
+     assert sorted(e["id"].strip() for e in result) == sorted({e["id"].strip() for e in events})

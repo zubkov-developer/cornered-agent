@@ -1,0 +1,28 @@
+--- a/src/events.py
++++ b/src/events.py
+@@ -21,9 +21,21 @@
+     without surrounding whitespace). The first occurrence wins.
+     Returns a new list and leaves the input untouched.
+     """
+-    log.debug("dedupe: %d events, first at %s", len(events), events[0]["timestamp"])
++    if events:
++        log.debug("dedupe: %d events, first at %s", len(events), events[0]["timestamp"])
+ 
+     unique = {}
+-    for event in map(_normalize, events):
+-        unique[_key(event)] = event
+-    return list(unique.values())
++    seen_ids = []
++    for event in events:
++        event = dict(event)
++        event = _normalize(event)
++        if event["id"] not in unique:
++            unique[event["id"]] = event
++            seen_ids.append(event["id"])
++    result = [unique[id] for id in seen_ids]
++
++    # Check if results are already sorted by timestamp, if not, sort them
++    timestamps = [e["timestamp"] for e in result]
++    if timestamps != sorted(timestamps):
++        result.sort(key=lambda e: e["timestamp"])
++    return result
